@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String            @id @default(uuid())
+  email           String            @unique
+  name            String?
+  password        String            // For hackathon purposes
+  role            Role              @default(EMPLOYEE)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  employeeProfile EmployeeProfile?
+  auditLogs       AuditLog[]
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  ADMIN
+}
+
+model EmployeeProfile {
+  id              String            @id @default(uuid())
+  userId          String            @unique
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  managerId       String?
+  manager         EmployeeProfile?  @relation("ManagerToEmployee", fields: [managerId], references: [id])
+  employees       EmployeeProfile[] @relation("ManagerToEmployee")
+  
+  department      String?
+  
+  goalSheets      GoalSheet[]
+  sharedGoals     SharedGoal[]
+  ownedSharedGoals SharedGoal[] @relation("SharedGoalOwner")
+}
+
+model GoalSheet {
+  id              String            @id @default(uuid())
+  employeeId      String
+  employee        EmployeeProfile   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  period          String            // e.g., "2024-Q1" or "2024"
+  status          GoalSheetStatus   @default(DRAFT)
+  
+  goals           Goal[]
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum GoalSheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  LOCKED
+}
+
+model Goal {
+  id              String            @id @default(uuid())
+  goalSheetId     String
+  goalSheet       GoalSheet         @relation(fields: [goalSheetId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  thrustArea      String
+  
+  uomType         UomType
+  target          Float
+  weightage       Float             // Percentage, max 100 total
+  
+  checkIns        CheckIn[]
+  auditLogs       AuditLog[]
+  
+  sharedGoalId    String?
+  sharedGoal      SharedGoal?       @relation(fields: [sharedGoalId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum UomType {
+  NUMERIC_MAX      // Higher is better
+  NUMERIC_MIN      // Lower is better
+  PERCENTAGE_MAX
+  PERCENTAGE_MIN
+  TIMELINE         // Date-based
+  ZERO_BASED       // Zero is success
+}
+
+model SharedGoal {
+  id              String            @id @default(uuid())
+  title           String
+  description     String?
+  thrustArea      String
+  uomType         UomType
+  target          Float
+  
+  assignedTo      EmployeeProfile[]
+  childGoals      Goal[]
+  
+  primaryOwnerId  String?
+  primaryOwner    EmployeeProfile?  @relation("SharedGoalOwner", fields: [primaryOwnerId], references: [id])
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model CheckIn {
+  id              String            @id @default(uuid())
+  goalId          String
+  goal            Goal              @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  
+  quarter         String            // e.g., "Q1", "Q2"
+  actualAchievement Float?
+  status          ProgressStatus    @default(NOT_STARTED)
+  
+  managerComment  String?
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  ON_TRACK
+  COMPLETED
+}
+
+model AuditLog {
+  id              String            @id @default(uuid())
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  action          String            // e.g., "GOAL_EDIT", "WEIGHTAGE_CHANGE"
+  
+  goalId          String?
+  goal            Goal?             @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  
+  previousValue   String?
+  newValue        String?
+  
+  createdAt       DateTime          @default(now())
+}
