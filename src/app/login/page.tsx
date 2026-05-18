@@ -17,17 +17,23 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const res = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const res = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    if (res?.error) {
-      setError("Invalid email or password");
+      if (!res || res.error || !res.ok) {
+        setError("Invalid email or password");
+        return;
+      }
+
+      window.location.assign("/dashboard");
+    } catch {
+      setError("Unable to sign in right now. Check the deployed auth environment variables.");
+    } finally {
       setLoading(false);
-    } else {
-      router.push("/dashboard");
     }
   };
 

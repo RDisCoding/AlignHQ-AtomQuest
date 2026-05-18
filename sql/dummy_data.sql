@@ -3,32 +3,32 @@
 -- Assumes Prisma's implicit join table for EmployeeProfile <-> SharedGoal is "_EmployeeProfileToSharedGoal".
 
 -- 1) Core users
-INSERT INTO "User" (email, name, password, role)
+INSERT INTO "User" (id, email, name, password, role, "createdAt", "updatedAt")
 VALUES
-  ('admin@test.com', 'System Admin', 'pass123', 'ADMIN'),
-  ('manager@test.com', 'Jane Manager', 'pass123', 'MANAGER'),
-  ('employee@test.com', 'John Employee', 'pass123', 'EMPLOYEE'),
-  ('employee2@test.com', 'Alice Smith', 'pass123', 'EMPLOYEE'),
-  ('employee3@test.com', 'Bob Johnson', 'pass123', 'EMPLOYEE')
+  (gen_random_uuid()::text, 'admin@test.com', 'System Admin', 'pass123', 'ADMIN', NOW(), NOW()),
+  (gen_random_uuid()::text, 'manager@test.com', 'Jane Manager', 'pass123', 'MANAGER', NOW(), NOW()),
+  (gen_random_uuid()::text, 'employee@test.com', 'John Employee', 'pass123', 'EMPLOYEE', NOW(), NOW()),
+  (gen_random_uuid()::text, 'employee2@test.com', 'Alice Smith', 'pass123', 'EMPLOYEE', NOW(), NOW()),
+  (gen_random_uuid()::text, 'employee3@test.com', 'Bob Johnson', 'pass123', 'EMPLOYEE', NOW(), NOW())
 ON CONFLICT (email) DO UPDATE SET
   name = EXCLUDED.name,
   password = EXCLUDED.password,
   role = EXCLUDED.role,
-  updatedAt = NOW();
+  "updatedAt" = NOW();
 
 -- 2) Employee profiles
 WITH manager_user AS (
   SELECT id FROM "User" WHERE email = 'manager@test.com' LIMIT 1
 ), manager_profile AS (
-  INSERT INTO "EmployeeProfile" ("userId", department)
-  SELECT manager_user.id, 'Engineering'
+  INSERT INTO "EmployeeProfile" (id, "userId", department)
+  SELECT gen_random_uuid(), manager_user.id, 'Engineering'
   FROM manager_user
   ON CONFLICT ("userId") DO UPDATE SET
     department = EXCLUDED.department
   RETURNING id
 )
-INSERT INTO "EmployeeProfile" ("userId", department, "managerId")
-SELECT u.id, 'Engineering', (SELECT id FROM manager_profile LIMIT 1)
+INSERT INTO "EmployeeProfile" (id, "userId", department, "managerId")
+SELECT gen_random_uuid(), u.id, 'Engineering', (SELECT id FROM manager_profile LIMIT 1)
 FROM "User" u
 WHERE u.email IN ('employee@test.com', 'employee2@test.com', 'employee3@test.com')
 ON CONFLICT ("userId") DO UPDATE SET
@@ -36,13 +36,16 @@ ON CONFLICT ("userId") DO UPDATE SET
   "managerId" = EXCLUDED."managerId";
 
 -- 3) Shared goals
-INSERT INTO "SharedGoal" (title, description, "thrustArea", "uomType", target, "primaryOwnerId")
-SELECT 'Reduce Customer Response Time',
+INSERT INTO "SharedGoal" (id, title, description, "thrustArea", "uomType", target, "primaryOwnerId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       'Reduce Customer Response Time',
        'Department KPI focused on improving first-response and resolution speed.',
        'Customer Success',
        'PERCENTAGE_MIN',
        80,
-       ep.id
+  ep.id,
+  NOW(),
+  NOW()
 FROM "EmployeeProfile" ep
 JOIN "User" u ON u.id = ep."userId"
 WHERE u.email = 'employee@test.com'
@@ -50,13 +53,16 @@ WHERE u.email = 'employee@test.com'
     SELECT 1 FROM "SharedGoal" sg WHERE sg.title = 'Reduce Customer Response Time'
   );
 
-INSERT INTO "SharedGoal" (title, description, "thrustArea", "uomType", target, "primaryOwnerId")
-SELECT 'Improve First Contact Resolution',
+INSERT INTO "SharedGoal" (id, title, description, "thrustArea", "uomType", target, "primaryOwnerId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       'Improve First Contact Resolution',
        'Department KPI for reducing repeat tickets and improving issue closure quality.',
        'Support Operations',
        'PERCENTAGE_MAX',
        92,
-       ep.id
+  ep.id,
+  NOW(),
+  NOW()
 FROM "EmployeeProfile" ep
 JOIN "User" u ON u.id = ep."userId"
 WHERE u.email = 'employee2@test.com'
@@ -102,8 +108,8 @@ WHERE NOT EXISTS (
 );
 
 -- 5) Goal sheets for Q1 2024
-INSERT INTO "GoalSheet" ("employeeId", period, status)
-SELECT ep.id, '2024-Q1', 'LOCKED'
+INSERT INTO "GoalSheet" (id, "employeeId", period, status, "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, ep.id, '2024-Q1', 'LOCKED', NOW(), NOW()
 FROM "EmployeeProfile" ep
 JOIN "User" u ON u.id = ep."userId"
 WHERE u.email = 'employee@test.com'
@@ -111,8 +117,8 @@ WHERE u.email = 'employee@test.com'
     SELECT 1 FROM "GoalSheet" gs WHERE gs."employeeId" = ep.id AND gs.period = '2024-Q1'
   );
 
-INSERT INTO "GoalSheet" ("employeeId", period, status)
-SELECT ep.id, '2024-Q1', 'SUBMITTED'
+INSERT INTO "GoalSheet" (id, "employeeId", period, status, "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, ep.id, '2024-Q1', 'SUBMITTED', NOW(), NOW()
 FROM "EmployeeProfile" ep
 JOIN "User" u ON u.id = ep."userId"
 WHERE u.email = 'employee2@test.com'
@@ -120,8 +126,8 @@ WHERE u.email = 'employee2@test.com'
     SELECT 1 FROM "GoalSheet" gs WHERE gs."employeeId" = ep.id AND gs.period = '2024-Q1'
   );
 
-INSERT INTO "GoalSheet" ("employeeId", period, status)
-SELECT ep.id, '2024-Q1', 'DRAFT'
+INSERT INTO "GoalSheet" (id, "employeeId", period, status, "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, ep.id, '2024-Q1', 'DRAFT', NOW(), NOW()
 FROM "EmployeeProfile" ep
 JOIN "User" u ON u.id = ep."userId"
 WHERE u.email = 'employee3@test.com'
@@ -143,15 +149,18 @@ WITH sheet AS (
   WHERE title = 'Reduce Customer Response Time'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId")
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        shared_goal.title,
        shared_goal.description,
        shared_goal."thrustArea",
        shared_goal."uomType",
        shared_goal.target,
        40,
-       shared_goal.id
+  shared_goal.id,
+  NOW(),
+  NOW()
 FROM sheet, shared_goal
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g."sharedGoalId" = shared_goal.id
@@ -165,14 +174,17 @@ WITH sheet AS (
   WHERE u.email = 'employee@test.com' AND gs.period = '2024-Q1'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage)
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        'Personal Upsell Opportunities',
        'Increase conversion of existing accounts through targeted upsell conversations.',
        'Revenue Growth',
        'NUMERIC_MAX',
        25,
-       60
+  60,
+  NOW(),
+  NOW()
 FROM sheet
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g.title = 'Personal Upsell Opportunities'
@@ -192,15 +204,18 @@ WITH sheet AS (
   WHERE title = 'Reduce Customer Response Time'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId")
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        shared_goal.title,
        shared_goal.description,
        shared_goal."thrustArea",
        shared_goal."uomType",
        shared_goal.target,
        35,
-       shared_goal.id
+  shared_goal.id,
+  NOW(),
+  NOW()
 FROM sheet, shared_goal
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g."sharedGoalId" = shared_goal.id
@@ -219,15 +234,18 @@ WITH sheet AS (
   WHERE title = 'Improve First Contact Resolution'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId")
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        shared_goal.title,
        shared_goal.description,
        shared_goal."thrustArea",
        shared_goal."uomType",
        shared_goal.target,
        25,
-       shared_goal.id
+  shared_goal.id,
+  NOW(),
+  NOW()
 FROM sheet, shared_goal
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g."sharedGoalId" = shared_goal.id
@@ -241,14 +259,17 @@ WITH sheet AS (
   WHERE u.email = 'employee2@test.com' AND gs.period = '2024-Q1'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage)
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        'Backlog Cleanup',
        'Reduce support backlog by consistently closing old tickets.',
        'Operations',
        'NUMERIC_MIN',
        50,
-       40
+  40,
+  NOW(),
+  NOW()
 FROM sheet
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g.title = 'Backlog Cleanup'
@@ -268,15 +289,18 @@ WITH sheet AS (
   WHERE title = 'Reduce Customer Response Time'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId")
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        shared_goal.title,
        shared_goal.description,
        shared_goal."thrustArea",
        shared_goal."uomType",
        shared_goal.target,
        30,
-       shared_goal.id
+  shared_goal.id,
+  NOW(),
+  NOW()
 FROM sheet, shared_goal
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g."sharedGoalId" = shared_goal.id
@@ -295,15 +319,18 @@ WITH sheet AS (
   WHERE title = 'Improve First Contact Resolution'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId")
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "sharedGoalId", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        shared_goal.title,
        shared_goal.description,
        shared_goal."thrustArea",
        shared_goal."uomType",
        shared_goal.target,
        30,
-       shared_goal.id
+  shared_goal.id,
+  NOW(),
+  NOW()
 FROM sheet, shared_goal
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g."sharedGoalId" = shared_goal.id
@@ -317,14 +344,17 @@ WITH sheet AS (
   WHERE u.email = 'employee3@test.com' AND gs.period = '2024-Q1'
   LIMIT 1
 )
-INSERT INTO "Goal" ("goalSheetId", title, description, "thrustArea", "uomType", target, weightage)
-SELECT sheet.id,
+INSERT INTO "Goal" (id, "goalSheetId", title, description, "thrustArea", "uomType", target, weightage, "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text,
+       sheet.id,
        'Knowledge Base Contributions',
        'Document recurring support answers and improve team self-service.',
        'Enablement',
        'NUMERIC_MAX',
        12,
-       40
+  40,
+  NOW(),
+  NOW()
 FROM sheet
 WHERE NOT EXISTS (
   SELECT 1 FROM "Goal" g WHERE g."goalSheetId" = sheet.id AND g.title = 'Knowledge Base Contributions'
@@ -339,8 +369,8 @@ WITH sheet AS (
   WHERE u.email = 'employee@test.com' AND gs.period = '2024-Q1'
   LIMIT 1
 )
-INSERT INTO "CheckIn" ("goalId", quarter, "actualAchievement", status, "managerComment")
-SELECT g.id, 'Q1', 80, 'ON_TRACK', 'Strong progress on the shared KPI.'
+INSERT INTO "CheckIn" (id, "goalId", quarter, "actualAchievement", status, "managerComment", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, g.id, 'Q1', 80, 'ON_TRACK', 'Strong progress on the shared KPI.', NOW(), NOW()
 FROM "Goal" g
 JOIN sheet ON sheet.id = g."goalSheetId"
 WHERE g."sharedGoalId" IS NOT NULL
@@ -356,8 +386,8 @@ WITH sheet AS (
   WHERE u.email = 'employee@test.com' AND gs.period = '2024-Q1'
   LIMIT 1
 )
-INSERT INTO "CheckIn" ("goalId", quarter, "actualAchievement", status, "managerComment")
-SELECT g.id, 'Q1', 22, 'COMPLETED', 'Personal goal completed above target.'
+INSERT INTO "CheckIn" (id, "goalId", quarter, "actualAchievement", status, "managerComment", "createdAt", "updatedAt")
+SELECT gen_random_uuid()::text, g.id, 'Q1', 22, 'COMPLETED', 'Personal goal completed above target.', NOW(), NOW()
 FROM "Goal" g
 JOIN sheet ON sheet.id = g."goalSheetId"
 WHERE g.title = 'Personal Upsell Opportunities'
@@ -366,16 +396,16 @@ WHERE g.title = 'Personal Upsell Opportunities'
   );
 
 -- 10) Audit log samples
-INSERT INTO "AuditLog" ("userId", action, "goalId", "previousValue", "newValue")
-SELECT u.id, 'SHARED_GOAL_CREATED', NULL, NULL, 'Created Department KPIs for Q1'
+INSERT INTO "AuditLog" (id, "userId", action, "goalId", "previousValue", "newValue", "createdAt")
+SELECT gen_random_uuid()::text, u.id, 'SHARED_GOAL_CREATED', NULL, NULL, 'Created Department KPIs for Q1', NOW()
 FROM "User" u
 WHERE u.email = 'manager@test.com'
   AND NOT EXISTS (
     SELECT 1 FROM "AuditLog" al WHERE al."userId" = u.id AND al.action = 'SHARED_GOAL_CREATED'
   );
 
-INSERT INTO "AuditLog" ("userId", action, "goalId", "previousValue", "newValue")
-SELECT u.id, 'GOAL_SHEET_APPROVED', NULL, 'SUBMITTED', 'LOCKED'
+INSERT INTO "AuditLog" (id, "userId", action, "goalId", "previousValue", "newValue", "createdAt")
+SELECT gen_random_uuid()::text, u.id, 'GOAL_SHEET_APPROVED', NULL, 'SUBMITTED', 'LOCKED', NOW()
 FROM "User" u
 JOIN "EmployeeProfile" ep ON ep."userId" = u.id
 JOIN "GoalSheet" gs ON gs."employeeId" = ep.id
@@ -385,8 +415,8 @@ WHERE u.email = 'manager@test.com'
     SELECT 1 FROM "AuditLog" al WHERE al."goalId" = gs.id AND al.action = 'GOAL_SHEET_APPROVED'
   );
 
-INSERT INTO "AuditLog" ("userId", action, "goalId", "previousValue", "newValue")
-SELECT u.id, 'GOAL_SHEET_UNLOCKED', NULL, 'LOCKED', 'SUBMITTED'
+INSERT INTO "AuditLog" (id, "userId", action, "goalId", "previousValue", "newValue", "createdAt")
+SELECT gen_random_uuid()::text, u.id, 'GOAL_SHEET_UNLOCKED', NULL, 'LOCKED', 'SUBMITTED', NOW()
 FROM "User" u
 JOIN "EmployeeProfile" ep ON ep."userId" = u.id
 JOIN "GoalSheet" gs ON gs."employeeId" = ep.id
